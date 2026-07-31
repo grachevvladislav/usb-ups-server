@@ -30,6 +30,11 @@ DEADTIME="${DEADTIME:-15}"
 
 DEBUG_LEVEL="${DEBUG_LEVEL:-0}"
 
+# Read-only status page + JSON and Prometheus endpoints. Off by default; there
+# is no authentication, so keep it on a trusted network.
+WEB="${WEB:-false}"
+WEB_PORT="${WEB_PORT:-8080}"
+
 # Watchdog: the NUT driver does not restart itself. If it dies or wedges, upsd
 # keeps serving stale data and clients silently lose protection.
 WATCHDOG="${WATCHDOG:-true}"
@@ -125,6 +130,7 @@ cleanup() {
   log "stopping…"
   pkill -TERM upsmon 2>/dev/null || true
   pkill -TERM upsd   2>/dev/null || true
+  pkill -f "busybox-extras httpd" 2>/dev/null || true
   upsdrvctl stop >/dev/null 2>&1 || true
   exit 0
 }
@@ -206,6 +212,12 @@ fi
 if [ "${RUN_UPSMON}" = "true" ]; then
   log "starting upsmon (local host protection)…"
   upsmon -u root -D &
+fi
+
+if [ "${WEB}" = "true" ]; then
+  log "starting web UI on port ${WEB_PORT} (/, /cgi-bin/api, /cgi-bin/metrics)…"
+  # UPS_NAME is inherited by the CGI scripts through httpd's environment.
+  busybox-extras httpd -f -p "${WEB_PORT}" -h /www &
 fi
 
 if [ "${WATCHDOG}" = "true" ]; then

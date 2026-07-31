@@ -1,0 +1,41 @@
+#!/bin/sh
+# Prometheus exposition format, so the same container can feed Grafana later.
+UPS="${UPS_NAME:-ups}"
+
+printf 'Content-Type: text/plain; version=0.0.4\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf '\r\n'
+
+if ! out=$(upsc "${UPS}@127.0.0.1" 2>&1); then
+  echo "# UPS unreachable"
+  echo "ups_up 0"
+  exit 0
+fi
+
+echo "ups_up 1"
+
+echo "$out" | grep -v "^Init SSL" | awk -F': ' -v ups="${UPS}" '
+  NF >= 2 {
+    key = $1
+    val = substr($0, index($0, ": ") + 2)
+    # Driver internals and USB ids are not measurements — skip them.
+    if (key ~ /^driver\./ || key ~ /^ups\.(vendorid|productid)$/) next
+    # Numeric variables become gauges; "ups." is dropped to avoid ups_ups_load.
+    if (val ~ /^-?[0-9]+(\.[0-9]+)?$/) {
+      name = key
+      sub(/^ups\./, "", name)
+      gsub(/\./, "_", name)
+      printf "ups_%s{ups=\"%s\"} %s\n", name, ups, val
+    }
+    if (key == "ups.status") status = val
+  }
+  END {
+    # One series per flag: on line, on battery, low battery, replace battery.
+    split("OL OB LB RB", flags, " ")
+    for (i in flags) {
+      f = flags[i]
+      v = (index(status, f) > 0) ? 1 : 0
+      printf "ups_status{ups=\"%s\",flag=\"%s\"} %d\n", ups, f, v
+    }
+  }
+'

@@ -9,6 +9,8 @@ services:
     # client) connects to.
     ports:
       - "${LISTEN_PORT:-3493}:3493"
+      # Status page, only reachable when WEB=true.
+      - "${WEB_PORT:-8080}:${WEB_PORT:-8080}"
 
     # USB passthrough. Bind-mounting all of /dev/bus/usb (instead of a single
     # device node) survives the UPS re-enumerating after a replug; the cgroup
@@ -39,6 +41,12 @@ services:
       # Optionally shut this host down on low battery.
       RUN_UPSMON: "${RUN_UPSMON:-false}"
       SHUTDOWN_CMD: "${SHUTDOWN_CMD:-/usr/local/bin/entrypoint.sh noop-shutdown}"
+
+      WATCHDOG_MAX_RESTARTS: "${WATCHDOG_MAX_RESTARTS:-3}"
+
+      # Read-only status page at http://<host>:8080 — no authentication.
+      WEB: "${WEB:-false}"
+      WEB_PORT: "${WEB_PORT:-8080}"
 
       DEBUG_LEVEL: "${DEBUG_LEVEL:-0}"
       TZ: "${TZ:-UTC}"

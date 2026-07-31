@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UPS</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --fg: #16181d; --muted: #6b7280;
+    --line: #e5e7eb; --ok: #15803d; --warn: #b45309; --bad: #b91c1c;
+    --ok-bg: #dcfce7; --warn-bg: #fef3c7; --bad-bg: #fee2e2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1115; --card: #171a21; --fg: #e6e8ec; --muted: #9099a8;
+      --line: #262b35; --ok: #4ade80; --warn: #fbbf24; --bad: #f87171;
+      --ok-bg: #14301f; --warn-bg: #33260a; --bad-bg: #3a1414;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
+    font: 15px/1.5 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; }
+  .status {
+    display: flex; align-items: center; gap: 14px; padding: 18px 20px; margin-bottom: 18px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  }
+  .dot { width: 14px; height: 14px; border-radius: 50%; flex: none; }
+  .status-text { font-size: 22px; font-weight: 600; }
+  .status-note { color: var(--muted); font-size: 13px; }
+  .ok .dot { background: var(--ok); } .ok .status-text { color: var(--ok); }
+  .warn .dot { background: var(--warn); } .warn .status-text { color: var(--warn); }
+  .bad .dot { background: var(--bad); } .bad .status-text { color: var(--bad); }
+  /* One row, equal columns, however many readings the UPS reports. */
+  .grid { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 12px; }
+  @media (max-width: 820px) {
+    .grid { grid-auto-flow: row; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+  .tile .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .tile .value { font-size: 23px; font-weight: 600; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .tile .unit { font-size: 14px; font-weight: 400; color: var(--muted); margin-left: 3px; }
+  .bar { height: 6px; border-radius: 3px; background: var(--line); margin-top: 10px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--ok); transition: width .4s; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+  td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  td:first-child { color: var(--muted); white-space: nowrap; }
+  td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+  details { margin-top: 20px; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; }
+  summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  footer { margin-top: 22px; color: var(--muted); font-size: 12px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  a { color: inherit; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="status" id="statusCard">
+    <span class="dot"></span>
+    <div>
+      <div class="status-text" id="statusText">connecting…</div>
+      <div class="status-note" id="statusNote">waiting for the first reading</div>
+    </div>
+  </div>
+
+  <div class="grid" id="tiles"></div>
+
+  <details>
+    <summary>All NUT variables</summary>
+    <div class="scroll"><table id="all"></table></div>
+  </details>
+
+  <footer>
+    <span id="updated">—</span>
+    <span><a href="cgi-bin/api">JSON</a> · <a href="cgi-bin/metrics">Prometheus</a></span>
+  </footer>
+</div>
+
+<script>
+const REFRESH_MS = 5000;
+
+// NUT reports status as space-separated flags; the worst one wins.
+const STATES = [
+  { flag: 'LB',   cls: 'bad',  text: 'Low battery',  note: 'battery nearly empty — clients are shutting down' },
+  { flag: 'RB',   cls: 'bad',  text: 'Replace battery', note: 'the UPS asks for a new battery' },
+  { flag: 'OB',   cls: 'warn', text: 'On battery',   note: 'mains lost, running from the battery' },
+  { flag: 'OL',   cls: 'ok',   text: 'On line',      note: 'mains present' },
+];
+
+const TILES = [
+  { key: 'input.voltage',   label: 'Input',   unit: 'V' },
+  { key: 'output.voltage',  label: 'Output',  unit: 'V' },
+  { key: 'ups.load',        label: 'Load',    unit: '%', bar: true },
+  { key: 'battery.charge',  label: 'Battery', unit: '%', bar: true },
+  { key: 'battery.voltage', label: 'Battery', unit: 'V' },
+  { key: 'battery.runtime', label: 'Runtime', unit: 'min', scale: v => Math.round(v / 60) },
+  { key: 'ups.temperature', label: 'Temp',    unit: '°C' },
+  { key: 'input.frequency', label: 'Frequency', unit: 'Hz' },
+];
+
+const $ = id => document.getElementById(id);
+
+function setStatus(cls, text, note) {
+  $('statusCard').className = 'status ' + cls;
+  $('statusText').textContent = text;
+  $('statusNote').textContent = note;
+}
+
+function renderTiles(d) {
+  const html = TILES.filter(t => d[t.key] !== undefined).map(t => {
+    const raw = parseFloat(d[t.key]);
+    const val = isNaN(raw) ? d[t.key] : (t.scale ? t.scale(raw) : raw);
+    const bar = t.bar && !isNaN(raw)
+      ? `<div class="bar"><i style="width:${Math.min(100, Math.max(0, raw))}%"></i></div>` : '';
+    return `<div class="tile"><div class="label">${t.label}</div>
+      <div class="value">${val}<span class="unit">${t.unit}</span></div>${bar}</div>`;
+  }).join('');
+  $('tiles').innerHTML = html || '<div class="tile"><div class="label">No numeric readings</div></div>';
+}
+
+function renderAll(d) {
+  $('all').innerHTML = Object.keys(d).filter(k => k !== 'ok' && k !== 'ups').sort()
+    .map(k => `<tr><td>${k}</td><td>${d[k]}</td></tr>`).join('');
+}
+
+async function tick() {
+  try {
+    const r = await fetch('cgi-bin/api', { cache: 'no-store' });
+    const d = await r.json();
+
+    if (!d.ok) {                       // upsd answered, but the data is unusable
+      setStatus('bad', 'No data', d.error || 'the UPS is not answering');
+      $('updated').textContent = 'last attempt ' + new Date().toLocaleTimeString();
+      return;
+    }
+
+    const flags = (d['ups.status'] || '').split(/\s+/);
+    const st = STATES.find(s => flags.includes(s.flag));
+    setStatus(st ? st.cls : 'warn',
+              st ? st.text : (d['ups.status'] || 'unknown'),
+              st ? st.note : 'unrecognised status flags');
+
+    renderTiles(d);
+    renderAll(d);
+    $('updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+  } catch (e) {
+    setStatus('bad', 'Server unreachable', String(e));
+  }
+}
+
+tick();
+setInterval(tick, REFRESH_MS);
+</script>
+</body>
+</html>

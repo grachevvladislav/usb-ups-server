@@ -1,0 +1,26 @@
+#!/bin/sh
+# Current UPS state as JSON. Every NUT variable is passed through as-is, so the
+# page works with any UPS regardless of which fields it reports.
+UPS="${UPS_NAME:-ups}"
+
+printf 'Content-Type: application/json\r\n'
+printf 'Cache-Control: no-store\r\n'
+printf '\r\n'
+
+if ! out=$(upsc "${UPS}@127.0.0.1" 2>&1); then
+  err=$(echo "$out" | grep -v "^Init SSL" | head -1 | sed 's/\\/\\\\/g; s/"/\\"/g')
+  printf '{"ok":false,"error":"%s"}\n' "${err:-unavailable}"
+  exit 0
+fi
+
+echo "$out" | grep -v "^Init SSL" | awk -F': ' -v ups="${UPS}" '
+  BEGIN { printf "{\"ok\":true,\"ups\":\"%s\"", ups }
+  NF >= 2 {
+    key = $1
+    val = substr($0, index($0, ": ") + 2)
+    gsub(/\\/, "\\\\", val)
+    gsub(/"/, "\\\"", val)
+    printf ",\"%s\":\"%s\"", key, val
+  }
+  END { print "}" }
+'

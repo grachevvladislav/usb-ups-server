@@ -176,12 +176,38 @@ All settings are environment variables (see `.env.example`).
 | `WATCHDOG` | `true` | Restart the UPS driver if it dies or data goes stale |
 | `WATCHDOG_INTERVAL` | `15` | Seconds between watchdog checks |
 | `WATCHDOG_FAILURES` | `3` | Consecutive failures before restarting the driver |
+| `WATCHDOG_MAX_RESTARTS` | `3` | Failed restarts before the container exits |
+| `WEB` | `false` | Serve the status page |
+| `WEB_PORT` | `8080` | Port for the status page |
 | `DEBUG_LEVEL` | `0` | Driver debug verbosity (1–5) |
 
 A NUT driver never restarts itself: if it dies, `upsd` keeps serving stale data
 and clients silently lose protection. The watchdog polls the UPS and restarts
 the driver after `WATCHDOG_INTERVAL × WATCHDOG_FAILURES` seconds without fresh
 data — recovery takes about a minute end to end.
+
+Some failures cannot be repaired from inside a running container: a USB device
+left claimed by a driver that died mid-transfer stays busy no matter how often
+`upsdrvctl` retries. After `WATCHDOG_MAX_RESTARTS` failed attempts the container
+exits with a non-zero status so the restart policy recreates it with a clean USB
+stack. A container that keeps failing shows up as `unhealthy` and restarting —
+far better than serving stale data while every client believes it is protected.
+
+## Status page
+
+Set `WEB=true` to serve a read-only page on port 8080:
+
+- `/` — live status, input and output voltage, load, battery, temperature,
+  frequency, refreshed every 5 seconds
+- `/cgi-bin/api` — the same data as JSON
+- `/cgi-bin/metrics` — Prometheus format, ready for Grafana
+
+It costs 107 KB (busybox httpd) and has **no authentication** — keep it on a
+trusted network, and do not expose it to the internet.
+
+The page only shows what your UPS actually reports. Simple Q1-protocol models
+have no `battery.charge` or `battery.runtime`, so those tiles are absent rather
+than guessed.
 
 ## Shutting down the host
 
