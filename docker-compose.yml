@@ -1,0 +1,44 @@
+services:
+  ups:
+    build: .
+    image: usb-ups-server:latest
+    container_name: usb-ups-server
+    restart: unless-stopped
+
+    # 3493/tcp is the NUT protocol port that Synology (and any other NUT
+    # client) connects to.
+    ports:
+      - "${LISTEN_PORT:-3493}:3493"
+
+    # USB passthrough. Bind-mounting all of /dev/bus/usb (instead of a single
+    # device node) survives the UPS re-enumerating after a replug; the cgroup
+    # rule grants access to the USB device major (189).
+    volumes:
+      - /dev/bus/usb:/dev/bus/usb
+    device_cgroup_rules:
+      - "c 189:* rwm"
+
+    environment:
+      # Which UPS — run `docker compose run --rm ups detect` to find these.
+      UPS_DRIVER: "${UPS_DRIVER:-usbhid-ups}"
+      UPS_SUBDRIVER: "${UPS_SUBDRIVER:-}"
+      UPS_VENDORID: "${UPS_VENDORID:-}"
+      UPS_PRODUCTID: "${UPS_PRODUCTID:-}"
+      UPS_SERIAL: "${UPS_SERIAL:-}"
+      UPS_EXTRA: "${UPS_EXTRA:-}"
+
+      # Naming — keep "ups"; Synology expects a simple name.
+      UPS_NAME: "${UPS_NAME:-ups}"
+      UPS_DESC: "${UPS_DESC:-USB UPS}"
+
+      # Clients. DSM always logs in as monuser/secret.
+      MONITOR_USER: "${MONITOR_USER:-monuser}"
+      MONITOR_PASS: "${MONITOR_PASS:-secret}"
+      POLL_INTERVAL: "${POLL_INTERVAL:-5}"
+
+      # Optionally shut this host down on low battery.
+      RUN_UPSMON: "${RUN_UPSMON:-false}"
+      SHUTDOWN_CMD: "${SHUTDOWN_CMD:-/usr/local/bin/entrypoint.sh noop-shutdown}"
+
+      DEBUG_LEVEL: "${DEBUG_LEVEL:-0}"
+      TZ: "${TZ:-UTC}"
