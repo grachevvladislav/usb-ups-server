@@ -21,7 +21,7 @@ TCP 3493) — NAS корректно выключится при пропада�
 ## Быстрый старт
 
 ```bash
-git clone https://github.com/<you>/usb-ups-server.git
+git clone https://github.com/grachevvladislav/usb-ups-server.git
 cd usb-ups-server
 cp .env.example .env
 ```
@@ -152,6 +152,14 @@ upsc ups@<ip-докер-хоста>
 
 Полный список переменных — в `.env.example` и в
 [README.md](README.md#configuration).
+
+### Вотчдог
+
+Драйвер NUT сам не перезапускается: если он умрёт, `upsd` продолжит отдавать
+устаревшие данные, и клиенты незаметно останутся без защиты. Встроенный вотчдог
+(`WATCHDOG=true`, включён по умолчанию) опрашивает ИБП и перезапускает драйвер
+после `WATCHDOG_INTERVAL × WATCHDOG_FAILURES` секунд без свежих данных — полное
+восстановление занимает около минуты.
 
 ## Проверенное железо
 

@@ -30,6 +30,12 @@ DEADTIME="${DEADTIME:-15}"
 
 DEBUG_LEVEL="${DEBUG_LEVEL:-0}"
 
+# Watchdog: the NUT driver does not restart itself. If it dies or wedges, upsd
+# keeps serving stale data and clients silently lose protection.
+WATCHDOG="${WATCHDOG:-true}"
+WATCHDOG_INTERVAL="${WATCHDOG_INTERVAL:-15}"
+WATCHDOG_FAILURES="${WATCHDOG_FAILURES:-3}"
+
 log() { echo "[nut] $*"; }
 
 case "${1:-}" in
@@ -123,6 +129,23 @@ cleanup() {
 }
 trap cleanup TERM INT
 
+watchdog() {
+  local fails=0
+  while sleep "${WATCHDOG_INTERVAL}"; do
+    if upsc "${UPS_NAME}@127.0.0.1" ups.status >/dev/null 2>&1; then
+      fails=0
+      continue
+    fi
+    fails=$((fails + 1))
+    if [ "${fails}" -ge "${WATCHDOG_FAILURES}" ]; then
+      log "WATCHDOG: no fresh data from the UPS — restarting the driver"
+      upsdrvctl -u root stop >/dev/null 2>&1 || true
+      upsdrvctl -u root start || log "WATCHDOG: driver restart failed, will retry"
+      fails=0
+    fi
+  done
+}
+
 # ------------------------------------------------------------------- start ---
 log "starting driver…"
 if ! upsdrvctl -u root start; then
@@ -152,6 +175,11 @@ fi
 if [ "${RUN_UPSMON}" = "true" ]; then
   log "starting upsmon (local host protection)…"
   upsmon -u root -D &
+fi
+
+if [ "${WATCHDOG}" = "true" ]; then
+  log "starting watchdog (checks every ${WATCHDOG_INTERVAL}s)…"
+  watchdog &
 fi
 
 wait "${UPSD_PID}"

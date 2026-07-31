@@ -21,7 +21,7 @@ This container talks to the UPS over USB and re-publishes its state on the netwo
 ## Quick start
 
 ```bash
-git clone https://github.com/<you>/usb-ups-server.git
+git clone https://github.com/grachevvladislav/usb-ups-server.git
 cd usb-ups-server
 cp .env.example .env
 ```
@@ -173,7 +173,15 @@ All settings are environment variables (see `.env.example`).
 | `POLL_INTERVAL` | `5` | Seconds between UPS polls |
 | `RUN_UPSMON` | `false` | Also run `upsmon` to protect the Docker host |
 | `SHUTDOWN_CMD` | no-op | Command `upsmon` runs on low battery |
+| `WATCHDOG` | `true` | Restart the UPS driver if it dies or data goes stale |
+| `WATCHDOG_INTERVAL` | `15` | Seconds between watchdog checks |
+| `WATCHDOG_FAILURES` | `3` | Consecutive failures before restarting the driver |
 | `DEBUG_LEVEL` | `0` | Driver debug verbosity (1–5) |
+
+A NUT driver never restarts itself: if it dies, `upsd` keeps serving stale data
+and clients silently lose protection. The watchdog polls the UPS and restarts
+the driver after `WATCHDOG_INTERVAL × WATCHDOG_FAILURES` seconds without fresh
+data — recovery takes about a minute end to end.
 
 ## Shutting down the host
 
