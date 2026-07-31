@@ -35,6 +35,7 @@ DEBUG_LEVEL="${DEBUG_LEVEL:-0}"
 WATCHDOG="${WATCHDOG:-true}"
 WATCHDOG_INTERVAL="${WATCHDOG_INTERVAL:-15}"
 WATCHDOG_FAILURES="${WATCHDOG_FAILURES:-3}"
+WATCHDOG_MAX_RESTARTS="${WATCHDOG_MAX_RESTARTS:-3}"
 
 log() { echo "[nut] $*"; }
 
@@ -129,19 +130,49 @@ cleanup() {
 }
 trap cleanup TERM INT
 
+GIVEUP_FLAG=/var/run/nut/.watchdog-giveup
+
+restart_driver() {
+  upsdrvctl -u root stop >/dev/null 2>&1 || true
+  # A driver that died mid-transfer can leave the USB device claimed, and then
+  # every later start fails with the device busy. Clear any leftover process
+  # before trying again.
+  pkill -f "/usr/lib/nut/${UPS_DRIVER}" 2>/dev/null || true
+  sleep 2
+  upsdrvctl -u root start
+}
+
 watchdog() {
-  local fails=0
+  local fails=0 restart_failures=0
   while sleep "${WATCHDOG_INTERVAL}"; do
     if upsc "${UPS_NAME}@127.0.0.1" ups.status >/dev/null 2>&1; then
       fails=0
+      restart_failures=0
       continue
     fi
+
     fails=$((fails + 1))
-    if [ "${fails}" -ge "${WATCHDOG_FAILURES}" ]; then
-      log "WATCHDOG: no fresh data from the UPS — restarting the driver"
-      upsdrvctl -u root stop >/dev/null 2>&1 || true
-      upsdrvctl -u root start || log "WATCHDOG: driver restart failed, will retry"
-      fails=0
+    [ "${fails}" -lt "${WATCHDOG_FAILURES}" ] && continue
+    fails=0
+
+    log "WATCHDOG: no fresh data from the UPS — restarting the driver"
+    if restart_driver; then
+      restart_failures=0
+      continue
+    fi
+
+    restart_failures=$((restart_failures + 1))
+    log "WATCHDOG: driver restart failed (${restart_failures}/${WATCHDOG_MAX_RESTARTS})"
+
+    # Some failures cannot be fixed from inside a running container — a wedged
+    # USB stack survives every upsdrvctl restart but not a fresh container.
+    # Exiting non-zero hands the problem to the restart policy instead of
+    # retrying forever while clients silently go unprotected.
+    if [ "${restart_failures}" -ge "${WATCHDOG_MAX_RESTARTS}" ]; then
+      log "WATCHDOG: giving up after ${restart_failures} attempts — exiting so the container is recreated"
+      touch "${GIVEUP_FLAG}"
+      kill -TERM "${UPSD_PID}" 2>/dev/null || true
+      return
     fi
   done
 }
@@ -182,4 +213,14 @@ if [ "${WATCHDOG}" = "true" ]; then
   watchdog &
 fi
 
-wait "${UPSD_PID}"
+# `wait` returning non-zero must not trip `set -e` before the flag is checked.
+UPSD_RC=0
+wait "${UPSD_PID}" || UPSD_RC=$?
+
+if [ -f "${GIVEUP_FLAG}" ]; then
+  rm -f "${GIVEUP_FLAG}"
+  log "exiting with failure so the restart policy recreates the container"
+  exit 1
+fi
+
+exit "${UPSD_RC}"
