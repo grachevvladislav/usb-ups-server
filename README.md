@@ -1,285 +1,74 @@
-# usb-ups-server
+# USB UPS Server — Synology DSM & Docker NUT server
 
-Turn any Linux box with a USB-connected UPS into a **network UPS server** that a
-Synology NAS — or any other [NUT](https://networkupstools.org/) client — can
-monitor.
+[Русский](README.ru.md) · **English** · [DSM installation](docs/INSTALL.md) · [Troubleshooting](docs/TROUBLESHOOTING.md)
 
-This container talks to the UPS over USB and re-publishes its state on the network
-(NUT protocol, TCP 3493), so the NAS shuts down cleanly on a power cut even.
+Connect a USB UPS that Synology DSM does not recognize, read its status with
+**Network UPS Tools (NUT)**, and make it available to a Synology NAS or another
+NUT client. Use the native DSM package on the NAS, or run the Docker server on
+a separate Linux machine with the UPS connected to it.
 
-- Alpine-based, ~30 MB, NUT 2.8.2
-- Configured entirely through environment variables — no config files to edit
-- `detect` mode that probes your UPS and tells you which driver to use
-- Works with Synology DSM out of the box (DSM's hardcoded `monuser`/`secret`
-  login is the default)
+Useful when **Synology does not detect a USB UPS**, the built-in driver does not
+support your device, or you need a **network UPS server for DSM / TrueNAS**.
+The tested device is **RICHCOMM “UPS USB Mon V2.0”, USB `0925:1234`**, using
+`nutdrv_qx` with the `armac` subdriver. A matching brand or USB ID alone does not
+guarantee compatibility with every UPS revision.
 
-## Requirements
+## Choose how to run it
 
-- A Linux host with Docker and the UPS plugged into USB
-- The host and the NAS on the same network
-
-## Quick start
-
-```bash
-git clone https://github.com/grachevvladislav/usb-ups-server.git
-cd usb-ups-server
-cp .env.example .env
-```
-
-Find out which driver your UPS needs:
-
-```bash
-docker compose run --rm ups detect
-```
-
-It lists the USB devices it can see, tries every plausible NUT driver in turn,
-and prints a ready-to-paste configuration, for example:
-
-```
-  ✔ nutdrv_qx:armac @ 0925:1234  (protocol: Q1 0.08)
-
-Working configuration — put this in .env:
-      UPS_DRIVER=nutdrv_qx
-      UPS_SUBDRIVER=armac
-      UPS_VENDORID=0925
-      UPS_PRODUCTID=1234
-```
-
-(NUT requires the USB ids whenever a subdriver is given; `detect` prints them.)
-
-Put those values in `.env`, then start it:
-
-```bash
-docker compose up -d --build
-```
-
-Check that the UPS is being read:
-
-```bash
-docker compose logs -f ups
-```
-
-```
-[nut] UPS is up:
-[nut]   battery.voltage: 13.6
-[nut]   input.voltage: 227.0
-[nut]   ups.load: 18
-[nut]   ups.status: OL
-```
-
-`ups.status: OL` means "on line" (mains present). `OB` is "on battery", `LB` is
-"low battery".
-
-## Connecting a Synology NAS
-
-On the NAS: **Control Panel → Hardware & Power → UPS**
-
-1. Tick **Enable UPS support**
-2. **UPS type**: `Synology UPS server` (on older DSM: `Network UPS`)
-3. **Network UPS server IP**: the IP of the Docker host
-4. Apply
-
-Then verify — **Device Information** on that same page should show the UPS
-model, battery status and remaining runtime. If it stays empty, the NAS is not
-talking to the server; see below.
-
-### Verifying the connection
-
-From any machine on the network (needs the `nut-client` / `nut` package):
-
-```bash
-upsc ups@<docker-host-ip>
-```
-
-Or without installing anything, straight from the container:
-
-```bash
-docker exec usb-ups-server upsc ups@127.0.0.1
-```
-
-From the NAS itself over SSH — DSM ships the NUT client:
-
-```bash
-upsc ups@<docker-host-ip>
-```
-
-And to confirm DSM is actually connected, check that the server sees a client
-session:
-
-```bash
-docker exec usb-ups-server upsc ups@127.0.0.1 ups.status
-```
-
-A live end-to-end test: pull the mains plug from the UPS for a few seconds.
-`ups.status` flips to `OB` and the NAS shows "On battery" within a few seconds.
-
-### If the NAS shows nothing
-
-- **Firewall**: TCP 3493 must be reachable from the NAS. Test from the NAS with
-  `nc -vz <docker-host-ip> 3493`.
-- **Credentials**: DSM always logs in as `monuser` / `secret`. Leave
-  `MONITOR_USER` / `MONITOR_PASS` at their defaults.
-- **UPS name**: DSM expects the plain name `ups`. Leave `UPS_NAME=ups`.
-- **Only one Synology can be the "server"**: on the NAS pick the *client* mode
-  (`Synology UPS server` = "connect to a remote NUT server"), not "Enable
-  network UPS server".
-
-## Connecting TrueNAS
-
-TrueNAS SCALE: **System Settings → Services → UPS → Configure**
-(TrueNAS CORE: **Services → UPS**). Field names shift slightly between
-versions.
-
-| Field | Value |
-| --- | --- |
-| UPS Mode | `Slave` (newer versions: `Remote`) |
-| Identifier | `ups` (must match `UPS_NAME`) |
-| Remote Host | IP of the Docker host |
-| Remote Port | `3493` |
-| Monitor User | `monuser` |
-| Monitor Password | `secret` |
-| Shutdown Mode | `UPS reaches low battery` |
-
-**Driver** and **Port** apply to Master mode only — ignore them here. Then
-enable the service and tick "Start Automatically".
-
-Unlike DSM, TrueNAS lets you pick any credentials; reusing `monuser`/`secret`
-is fine, `upsd` handles multiple clients on one account.
-
-Verify from the TrueNAS shell:
-
-```bash
-upsc ups@<docker-host-ip>
-```
-
-If TrueNAS and the Docker host run off the *same* UPS, set the shutdown mode to
-"UPS reaches low battery" — otherwise a brief flicker starts a full shutdown.
-
-## Configuration
-
-All settings are environment variables (see `.env.example`).
-
-| Variable | Default | Meaning |
+| | Native Synology package | Docker NUT server |
 | --- | --- | --- |
-| `UPS_DRIVER` | `usbhid-ups` | NUT driver name |
-| `UPS_SUBDRIVER` | — | Subdriver, `nutdrv_qx` only (`armac`, `cypress`, `krauler`, …) |
-| `UPS_VENDORID` / `UPS_PRODUCTID` | — | Pin to one USB device when several are attached |
-| `UPS_SERIAL` | — | Pin by serial number |
-| `UPS_EXTRA` | — | Extra `ups.conf` lines, newline separated |
-| `UPS_NAME` | `ups` | UPS name clients connect to |
-| `UPS_DESC` | `USB UPS` | Free-text description |
-| `LISTEN_PORT` | `3493` | Host port to publish |
-| `MONITOR_USER` / `MONITOR_PASS` | `monuser` / `secret` | Client login (DSM hardcodes these) |
-| `POLL_INTERVAL` | `5` | Seconds between UPS polls |
-| `RUN_UPSMON` | `false` | Also run `upsmon` to protect the Docker host |
-| `SHUTDOWN_CMD` | no-op | Command `upsmon` runs on low battery |
-| `WATCHDOG` | `true` | Restart the UPS driver if it dies or data goes stale |
-| `WATCHDOG_INTERVAL` | `15` | Seconds between watchdog checks |
-| `WATCHDOG_FAILURES` | `3` | Consecutive failures before restarting the driver |
-| `WATCHDOG_MAX_RESTARTS` | `3` | Failed restarts before the container exits |
-| `WEB` | `false` | Serve the status page |
-| `WEB_PORT` | `8080` | Port for the status page |
-| `DEBUG_LEVEL` | `0` | Driver debug verbosity (1–5) |
+| UPS USB cable | Connected to the NAS | Connected to a Linux Docker host |
+| Interface | DSM desktop window; current DSM administrator session | Optional read-only status page |
+| Requirements | DSM 7.2.2+, x86_64 or aarch64 | Linux, Docker Compose, USB access |
+| Install | [DSM guide](docs/INSTALL.md) | [Docker guide](docs/DOCKER.md) |
 
-A NUT driver never restarts itself: if it dies, `upsd` keeps serving stale data
-and clients silently lose protection. The watchdog polls the UPS and restarts
-the driver after `WATCHDOG_INTERVAL × WATCHDOG_FAILURES` seconds without fresh
-data — recovery takes about a minute end to end.
+The DSM package includes NUT 2.8.2, USB configuration, driver detection, live
+voltage/load/battery readings, a driver watchdog, logs and diagnostics export.
+It runs without Docker or Python on the NAS. Its window uses DSM components,
+without an iframe or a separate application login.
 
-Some failures cannot be repaired from inside a running container: a USB device
-left claimed by a driver that died mid-transfer stays busy no matter how often
-`upsdrvctl` retries. After `WATCHDOG_MAX_RESTARTS` failed attempts the container
-exits with a non-zero status so the restart policy recreates it with a clean USB
-stack. A container that keeps failing shows up as `unhealthy` and restarting —
-far better than serving stale data while every client believes it is protected.
+**Development status:** USB readings and DSM network UPS discovery have been
+verified on Xpenology DS3622xs+ / AMD N40L, DSM 7.2.2-72806 Update 10. Automatic
+safe-state / shutdown on a power failure has **not** been verified. The package
+publishes UPS data; DSM's own UPS client must be configured and tested separately.
+ARM64 builds exist; DS423 hardware testing is pending.
 
-## Status page
+## Install on DSM
 
-Set `WEB=true` to serve a read-only page on port 8080:
+1. Obtain or [build an SPK](docs/INSTALL.md#obtain-the-package) for your NAS CPU.
+   There are currently no published GitHub release packages.
+2. In **Package Center → Manual Install**, select the `.spk` and start it.
+3. Open **USB UPS Server** from the DSM main menu over HTTPS.
+4. In **Settings**, refresh the USB list and select the UPS. For the tested
+   `0925:1234` device, the app selects `nutdrv_qx / armac`.
+5. [Grant access to that USB device](docs/INSTALL.md#usb-access), enable
+   monitoring and click **Apply**. Check for live data in **Overview**.
+6. To protect a NAS, follow [DSM network UPS setup](docs/INSTALL.md#connect-dsm-to-the-nut-server).
 
-- `/` — live status, input and output voltage, load, battery, temperature,
-  frequency, refreshed every 5 seconds
-- `/cgi-bin/api` — the same data as JSON
-- `/cgi-bin/metrics` — Prometheus format, ready for Grafana
+## Common problems
 
-It costs 107 KB (busybox httpd) and has **no authentication** — keep it on a
-trusted network, and do not expose it to the internet.
-
-The page only shows what your UPS actually reports. Simple Q1-protocol models
-have no `battery.charge` or `battery.runtime`, so those tiles are absent rather
-than guessed.
-
-## Shutting down the host
-
-The container publishes UPS state; by default it does *not* power anything off.
-To also shut down the Docker host on low battery, set `RUN_UPSMON=true` and give
-the container a way to reach the host's init system. The simplest approach is to
-have `upsmon` write a flag file that a small unit on the host watches:
-
-```yaml
-    environment:
-      RUN_UPSMON: "true"
-      SHUTDOWN_CMD: "touch /shutdown-flag/poweroff"
-    volumes:
-      - /run/ups-shutdown:/shutdown-flag
-```
-
-Anything that lets a container halt its host (a Docker socket, `nsenter`,
-privileged mode) is a security trade-off — pick the one you're comfortable with.
-
-## Choosing a driver
-
-`detect` does this for you, but for reference:
-
-| UPS family | Driver |
+| Symptom | Start here |
 | --- | --- |
-| APC, Eaton, CyberPower, most modern USB models | `usbhid-ups` |
-| Armac, Powercom, Ippon, SVEN, many no-name "Q1/Megatec" units | `nutdrv_qx` + a subdriver |
-| Older Megatec serial-over-USB | `blazer_usb` |
-| Richcomm dry-contact | `richcomm_usb` |
+| UPS absent from the USB list | [USB cable, kernel and controller](docs/TROUBLESHOOTING.md#ups-not-in-the-usb-list) |
+| `Permission denied`, works only as root | [USB permissions](docs/TROUBLESHOOTING.md#usb-permission-denied) |
+| `Entity not found` with RICHCOMM `0925:1234` | [Driver and Armac profile](docs/TROUBLESHOOTING.md#richcomm-09251234-entity-not-found) |
+| Data appears in the app, but DSM cannot connect | [NUT address, port and DSM client](docs/TROUBLESHOOTING.md#dsm-cannot-connect-to-the-ups-server) |
+| No battery percentage or remaining runtime | [Unsupported readings](docs/TROUBLESHOOTING.md#battery-charge-or-runtime-is-missing) |
+| Empty window or DSM session error after an update | [DSM window](docs/TROUBLESHOOTING.md#dsm-window-or-session-error) |
+| N40L / Arc: UPS appears only after loading OHCI | [Xpenology controller diagnosis](docs/TROUBLESHOOTING.md#xpenology-n40l-and-missing-ohci) |
 
-The full list is NUT's
-[hardware compatibility list](https://networkupstools.org/stable-hcl.html).
+## Documentation and support
 
-## Tested hardware
+- [DSM installation — English](docs/INSTALL.md) / [Русский](docs/INSTALL.ru.md)
+- [Troubleshooting — English](docs/TROUBLESHOOTING.md) / [Русский](docs/TROUBLESHOOTING.ru.md)
+- [Docker, TrueNAS and environment variables](docs/DOCKER.md) / [Русский](docs/DOCKER.ru.md)
+- [DSM architecture, build and hardware test notes (Russian)](docs/DSM.ru.md)
+- [Report a bug or working UPS model](https://github.com/grachevvladislav/usb-ups-server/issues/new/choose)
 
-| UPS | USB ID | Configuration |
-| --- | --- | --- |
-| RICHCOMM "UPS USB Mon V2.0" (Armac-compatible) | `0925:1234` | `UPS_DRIVER=nutdrv_qx`, `UPS_SUBDRIVER=armac` |
-
-Reports of other working models are welcome — open a PR adding a row.
-
-## Troubleshooting
-
-**`Driver failed to start` / `Device not supported`**
-
-Run `docker compose run --rm ups detect`. If nothing matches, run the driver by
-hand with full debug:
-
-```bash
-docker compose run --rm -e DEBUG_LEVEL=5 ups
-```
-
-**`lsusb` inside the container shows no devices**
-
-`/dev/bus/usb` isn't mounted, or the cgroup rule is missing. Both are in
-`docker-compose.yml`; some older Docker versions need `privileged: true`
-instead.
-
-**The driver used to work on the host but not in the container (or vice versa)**
-
-Only one process may own the USB device. Stop any NUT service on the host:
-`sudo systemctl stop nut-driver nut-server`.
-
-**Driver fails with `Entity not found` on a `0925:1234` device**
-
-That's `richcomm_usb` guessing the wrong USB endpoint. These units are not
-Richcomm dry-contact devices despite the vendor string — use
-`nutdrv_qx` + `armac`.
-
-**NUT version matters.** Debian 12 ships NUT 2.8.0, which fails on several cheap
-USB UPSes that 2.8.2 handles fine. That's why this image is Alpine-based.
+Include the UPS model, USB VID:PID, NAS CPU/model, DSM version and diagnostic
+output. Remove secrets and identifying information before posting. The issue
+forms list exactly what is useful.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+[MIT](LICENSE). NUT and bundled runtime components retain their own licenses.

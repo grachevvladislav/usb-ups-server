@@ -1,0 +1,38 @@
+name: Working UPS / Проверенный ИБП
+description: Report a working UPS profile and which functions you tested / Поделиться рабочим профилем
+body:
+  - type: input
+    id: model
+    attributes:
+      label: Manufacturer and exact model / Производитель и модель
+    validations:
+      required: true
+  - type: input
+    id: usb
+    attributes:
+      label: USB VID:PID
+      placeholder: "0925:1234"
+    validations:
+      required: true
+  - type: textarea
+    id: configuration
+    attributes:
+      label: Driver, subdriver and versions / Драйвер, субдрайвер и версии
+      description: Include app version, SPK or Docker, DSM/OS version, NAS model and CPU. Do not include secrets or serial numbers.
+    validations:
+      required: true
+  - type: checkboxes
+    id: tested
+    attributes:
+      label: What was verified? / Что проверено?
+      options:
+        - label: Fresh UPS readings / Свежие показания
+        - label: USB reconnect recovery / Восстановление после переподключения USB
+        - label: Reboot recovery / Восстановление после перезагрузки
+        - label: DSM network UPS connection / Подключение DSM к серверу
+        - label: OL → OB → OL transition / Переход на батарею и обратно
+        - label: Controlled DSM safe-state / shutdown test / Контролируемый безопасный останов DSM
+  - type: textarea
+    id: details
+    attributes:
+      label: Supported measurements and limitations / Показания и ограничения
