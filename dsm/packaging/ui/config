@@ -1,0 +1,14 @@
+{
+  "USBUPSServer.js": {
+    "org.usbupsserver.App": {
+      "title": "USB UPS Server",
+      "desc": "USB UPS monitoring and NUT server",
+      "icon": "images/icon_{0}.png",
+      "type": "app",
+      "appWindow": "org.usbupsserver.App",
+      "allowMultiInstance": false,
+      "hidden": false,
+      "allUsers": false
+    }
+  }
+}

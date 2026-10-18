@@ -1,0 +1,166 @@
+{
+  "arch": "x86_64",
+  "alpine": "3.22",
+  "packages": [
+    {
+      "name": "libcrypto3",
+      "version": "3.5.9-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libcrypto3-3.5.9-r0.apk",
+      "sha256": "3f5825ced5fde1c66a5376a3f6076b3c08538ad52d9ef23f069857e212d9175a",
+      "license": "Apache-2.0",
+      "source_commit": "b6d0d5c5639c0034e9073c39e9ff139e28e71818",
+      "origin": "openssl",
+      "repo": "main"
+    },
+    {
+      "name": "libexpat",
+      "version": "2.9.0-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libexpat-2.9.0-r0.apk",
+      "sha256": "4c9fb621d455d12475767e261821a4be7b4e91e2ba19c20a02e7fa99189b0d6d",
+      "license": "MIT",
+      "source_commit": "f71ec7147f3df6e984064717d4200875fc8834c4",
+      "origin": "expat",
+      "repo": "main"
+    },
+    {
+      "name": "libgcc",
+      "version": "14.2.0-r6",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libgcc-14.2.0-r6.apk",
+      "sha256": "04f3467bc967e705221a843fe4d3de5850db826e571686e0c0ed453d38cb5c59",
+      "license": "GPL-2.0-or-later AND LGPL-2.1-or-later",
+      "source_commit": "fbf60319be3bbaf6dd32ef55cc6fb7189e05c266",
+      "origin": "gcc",
+      "repo": "main"
+    },
+    {
+      "name": "libltdl",
+      "version": "2.5.4-r1",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libltdl-2.5.4-r1.apk",
+      "sha256": "decb17c1b67a20487ffde9e833c0163aca10fe5ede915cac207377e86bba9f7b",
+      "license": "LGPL-2.0-or-later AND GPL-2.0-or-later",
+      "source_commit": "be0833caee3020f089f02c5d7223e971a9a11ffb",
+      "origin": "libtool",
+      "repo": "main"
+    },
+    {
+      "name": "libmodbus",
+      "version": "3.1.10-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/libmodbus-3.1.10-r0.apk",
+      "sha256": "adee34638250fa370e0ada4598ccd24d0c66bc7007640adad1444e498b1bc470",
+      "license": "LGPL-2.1-or-later",
+      "source_commit": "64afbd6d6c786832d99e27a6a584e47fd756f8eb",
+      "origin": "libmodbus",
+      "repo": "community"
+    },
+    {
+      "name": "libssl3",
+      "version": "3.5.9-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libssl3-3.5.9-r0.apk",
+      "sha256": "6801c740b9760b5b08da8db6367ebc18b2cc4dbaf371f7148429538b8bb04e23",
+      "license": "Apache-2.0",
+      "source_commit": "b6d0d5c5639c0034e9073c39e9ff139e28e71818",
+      "origin": "openssl",
+      "repo": "main"
+    },
+    {
+      "name": "libstdc++",
+      "version": "14.2.0-r6",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libstdc++-14.2.0-r6.apk",
+      "sha256": "939f7c99898f3e8154207a17f4acbe8bc40437e1bb1b43f5525620ca9e452a2e",
+      "license": "GPL-2.0-or-later AND LGPL-2.1-or-later",
+      "source_commit": "fbf60319be3bbaf6dd32ef55cc6fb7189e05c266",
+      "origin": "gcc",
+      "repo": "main"
+    },
+    {
+      "name": "libusb",
+      "version": "1.0.28-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/libusb-1.0.28-r0.apk",
+      "sha256": "be4856c1f050b093a21da276271a49c4153726c90de1e67ae85ea978e2577288",
+      "license": "LGPL-2.1-or-later",
+      "source_commit": "0ad4e679129e2210dd3376908eca629bdb046266",
+      "origin": "libusb",
+      "repo": "main"
+    },
+    {
+      "name": "musl",
+      "version": "1.2.5-r12",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/musl-1.2.5-r12.apk",
+      "sha256": "4990a5e0ba312e478f94cfe431a70efef1538004eb361c8ae424516848be45bb",
+      "license": "MIT",
+      "source_commit": "1546f29a1fd233db15464ce000b6247ed71b31e7",
+      "origin": "musl",
+      "repo": "main"
+    },
+    {
+      "name": "neon",
+      "version": "0.33.0-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/neon-0.33.0-r0.apk",
+      "sha256": "4eac2c39c1f8ce7ad715a6d2b5c4a41fdcbe8e9010d38d7591d17d8528a87562",
+      "license": "LGPL-2.0-or-later",
+      "source_commit": "3679fbb9d49615997870ed15b6f12d328ff557f2",
+      "origin": "neon",
+      "repo": "main"
+    },
+    {
+      "name": "net-snmp-libs",
+      "version": "5.9.4-r1",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/net-snmp-libs-5.9.4-r1.apk",
+      "sha256": "51867e274d4ff6939b24eb8d74392dc94a24ada640c6c04fee36d676aff650dc",
+      "license": "Net-SNMP",
+      "source_commit": "a8daed94b4968dfbb132f777a5e97a6efadfe7e6",
+      "origin": "net-snmp",
+      "repo": "main"
+    },
+    {
+      "name": "nspr",
+      "version": "4.36-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/nspr-4.36-r0.apk",
+      "sha256": "7b6cd901bf406eff012a6fcaf55732345e7db07d1a7e059b639af11781d6fa02",
+      "license": "MPL-2.0",
+      "source_commit": "391778dff632ee3dd46af147f3d6c3f60672375e",
+      "origin": "nspr",
+      "repo": "main"
+    },
+    {
+      "name": "nss",
+      "version": "3.114-r0",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/nss-3.114-r0.apk",
+      "sha256": "c1615e523fbe35ea84636edb3b2a6d8216e9fa6b6cf2fdf1ec2e72b00f228360",
+      "license": "MPL-2.0",
+      "source_commit": "5b1a79380a4a5e98f259ad98bff2c7e8563b19c4",
+      "origin": "nss",
+      "repo": "main"
+    },
+    {
+      "name": "nut",
+      "version": "2.8.2-r2",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/community/x86_64/nut-2.8.2-r2.apk",
+      "sha256": "01dd5654151e62b66efc015361576c8c708d377966cf8cbe137d7b1de288911a",
+      "license": "GPL-2.0-or-later",
+      "source_commit": "ca41932832d55f0f3a3c5ab71222a4a68ac1b5a1",
+      "origin": "nut",
+      "repo": "community"
+    },
+    {
+      "name": "sqlite-libs",
+      "version": "3.49.2-r1",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/sqlite-libs-3.49.2-r1.apk",
+      "sha256": "7af9a58595642de91ea35d3d070cd38d969680a720ce76b14966859e6fb4af99",
+      "license": "blessing",
+      "source_commit": "dac9cea7503a4e9b84d647aab2492d733ac4ac8c",
+      "origin": "sqlite",
+      "repo": "main"
+    },
+    {
+      "name": "zlib",
+      "version": "1.3.2-r1",
+      "url": "https://dl-cdn.alpinelinux.org/alpine/v3.22/main/x86_64/zlib-1.3.2-r1.apk",
+      "sha256": "af24e502645e2b392cae833856d776691ac21655362e5db69d7b89f147f76216",
+      "license": "Zlib",
+      "source_commit": "121fc97db0e7c59db704891b6d7ef83ae5df2cc2",
+      "origin": "zlib",
+      "repo": "main"
+    }
+  ]
+}

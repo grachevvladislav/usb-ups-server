@@ -1,0 +1,69 @@
+name: DSM package
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+      - run: go test -race ./... && go vet ./...
+        working-directory: dsm
+      - run: shellcheck dsm/packaging/scripts/* dsm/tools/host/*.sh
+      - run: python3 -m unittest discover -s dsm/tools -p 'test_*.py'
+      - run: node --test dsm/tools/test_dsm_window.cjs
+      - run: python3 -m unittest discover -s dsm/kernel/ohci -p 'test_*.py'
+      - run: shellcheck dsm/kernel/ohci/*.sh
+  package:
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-latest
+            goarch: amd64
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+            goarch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.5'
+      - run: python3 dsm/tools/build.py --arch ${{ matrix.arch }}
+      - name: Validate package and extract runtime
+        run: python3 dsm/tools/check_spk.py dist/usb-ups-server-*-${{ matrix.arch }}.spk --extract dist/qa
+      - name: Build runtime test binary
+        working-directory: dsm
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.goarch }} go test -c ./internal/app -o ../dist/runtime-tests
+      - name: Test bundled NUT without root or Alpine
+        run: docker run --rm --user nobody --network none -e UPS_RUNTIME_ROOT=/pkg -v "$PWD/dist/qa:/pkg:ro" -v "$PWD/dist/runtime-tests:/ups-tests:ro" debian:bookworm-slim /ups-tests -test.run '^TestBundledRuntime$' -test.v
+      - name: Test package lifecycle without root
+        run: |
+          docker run --rm --user nobody --network none \
+            -v "$PWD/dist/qa:/pkg:ro" \
+            -v "$PWD/dsm/packaging/scripts:/lifecycle:ro" \
+            debian:bookworm-slim sh -c '
+              set -eu
+              export SYNOPKG_PKGDEST=/pkg SYNOPKG_PKGVAR=/tmp/ups
+              sh /lifecycle/start-stop-status start
+              sh /lifecycle/start-stop-status start
+              sh /lifecycle/start-stop-status status
+              test -r /tmp/ups/admin-token
+              sh /lifecycle/start-stop-status stop
+              if sh /lifecycle/start-stop-status status; then exit 1; fi
+              sh /lifecycle/start-stop-status start
+              sh /lifecycle/start-stop-status stop
+            '
+      - uses: actions/upload-artifact@v4
+        with:
+          name: usb-ups-server-${{ matrix.arch }}
+          path: |
+            dist/*.spk
+            dist/*.sha256
