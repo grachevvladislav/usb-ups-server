@@ -9,6 +9,13 @@ import struct
 import tarfile
 
 
+def elf_machine(package_arch):
+    machines = {"x86_64": 62, "armv8": 183}
+    if package_arch not in machines:
+        raise ValueError(f"unsupported DSM package architecture: {package_arch}; ARM64 packages must declare armv8, not aarch64")
+    return machines[package_arch]
+
+
 def check(path, extract=None):
     with tarfile.open(path) as outer:
         names = set(outer.getnames())
@@ -41,7 +48,7 @@ def check(path, extract=None):
                 raise ValueError("DSM application JavaScript is missing")
             if "proxy_pass http://127.0.0.1:8788/;" not in inner.extractfile("nginx/dsm.conf").read().decode():
                 raise ValueError("DSM proxy must target the loopback listener")
-            arch = {"x86_64": 62, "aarch64": 183}[info["arch"]]
+            arch = elf_machine(info["arch"])
             for binary in ["bin/upsdsm", "nut/usr/sbin/upsd", "nut/usr/lib/nut/usbhid-ups", "nut/usr/lib/nut/nutdrv_qx"]:
                 header = inner.extractfile(binary).read(20)
                 if header[:5] != b"\x7fELF\x02" or struct.unpack("<H", header[18:20])[0] != arch:

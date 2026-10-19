@@ -25,7 +25,9 @@ python3 dsm/tools/check_spk.py dist/usb-ups-server-*-x86_64.spk
 ```
 
 For ARM64 use `aarch64` in both commands. If multiple builds exist in `dist/`,
-use the exact filename instead of `*`. The builder verifies pinned runtime
+use the exact filename instead of `*`. DS423 / RTD1619B uses this ARM64 build.
+The filename uses the CPU name `aarch64`; its SPK metadata declares the Synology
+package family `armv8`, as required by the [official mapping](https://help.synology.com/developer-guide/appendix/platarchs.html). The builder verifies pinned runtime
 components by SHA-256. 32-bit ARM is not supported. ARM64 hardware testing is pending.
 
 ## Install or update

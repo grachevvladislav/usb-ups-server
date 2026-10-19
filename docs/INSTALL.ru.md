@@ -32,10 +32,14 @@ python3 dsm/tools/check_spk.py dist/usb-ups-server-*-x86_64.spk
 Сборщик скачивает зафиксированные компоненты NUT и проверяет их SHA-256.
 На самом NAS Go, Python и Docker не нужны.
 
-| Процессор NAS | Файл |
-| --- | --- |
-| Intel / AMD, 64 бита | `usb-ups-server-<версия>-x86_64.spk` |
-| ARM, 64 бита | `usb-ups-server-<версия>-aarch64.spk` |
+| Процессор NAS | Файл | Архитектура пакета DSM |
+| --- | --- | --- |
+| Intel / AMD, 64 бита | `usb-ups-server-<версия>-x86_64.spk` | `x86_64` |
+| ARM, 64 бита (в том числе DS423 / RTD1619B) | `usb-ups-server-<версия>-aarch64.spk` | `armv8` |
+
+`aarch64` в имени файла обозначает архитектуру бинарников; внутри SPK указано
+совместимое с DSM семейство `armv8`. DS423 относится к платформе `rtd1619b`
+и использует этот ARM-пакет. [Таблица архитектур Synology](https://help.synology.com/developer-guide/appendix/platarchs.html).
 
 32-битные ARM-модели пока не поддерживаются. Наличие ARM64-сборки не означает,
 что пакет уже испытан на каждой ARM-модели и версии DSM.

@@ -6,6 +6,14 @@ Follow the chain: **USB enumeration → permissions → driver → fresh NUT dat
 DSM connection → safe-state test**. Settings at a later layer do not repair an
 underlying USB controller problem.
 
+## Package is not supported on the Synology NAS platform
+
+This error appears before the app starts. Check the CPU and selected SPK:
+DS423 / RTD1619B uses `aarch64.spk` with internal `arch="armv8"` metadata;
+Intel/AMD NAS models use `x86_64.spk`. DS423 and DS423+ are different platforms.
+DSM 7.2.2+ is required. Renaming an SPK does not change its architecture.
+Include the exact package version, DSM version and NAS model in an issue.
+
 ## UPS not in the USB list
 
 Refresh the USB list, reconnect the USB data cable and try another cable/port.

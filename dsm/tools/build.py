@@ -15,6 +15,8 @@ import tempfile
 import zlib
 
 ROOT = Path(__file__).resolve().parents[1]
+# DSM package families differ from Go/Alpine CPU names.
+PACKAGE_ARCH = {"x86_64": "x86_64", "aarch64": "armv8"}
 VERSION = (ROOT / "internal/app/version.txt").read_text().strip()
 if not re.fullmatch(r"\d+\.\d+\.\d+", VERSION):
     raise ValueError("invalid release version")
@@ -50,6 +52,10 @@ def archive(source, dest, mode):
                 t.addfile(info)
 
 
+def package_info(arch):
+    return (ROOT / "packaging/INFO").read_text().replace("@ARCH@", PACKAGE_ARCH[arch]).replace("@VERSION@", VERSION)
+
+
 def build(arch, out):
     with tempfile.TemporaryDirectory(prefix="ups-spk-") as temp:
         temp = Path(temp)
@@ -73,7 +79,7 @@ def build(arch, out):
             (spk / name).write_bytes(icon(size))
         for size in (16, 24, 32, 48, 64, 72, 256):
             (package / "ui/images" / f"icon_{size}.png").write_bytes(icon(size))
-        info = (spk / "INFO").read_text().replace("@ARCH@", arch).replace("@VERSION@", VERSION)
+        info = package_info(arch)
         archive(package, spk / "package.tgz", "w:gz")
         digest = hashlib.md5((spk / "package.tgz").read_bytes()).hexdigest()
         (spk / "INFO").write_text(info + f'\nchecksum="{digest}"\n')
