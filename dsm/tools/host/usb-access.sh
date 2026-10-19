@@ -38,8 +38,8 @@ fi
 command -v setfacl >/dev/null || { echo "setfacl is unavailable; collect DSM diagnostics before configuring permissions" >&2; exit 1; }
 found=0
 for device in /sys/bus/usb/devices/*; do
-    [ -f "$device/idVendor" ] && [ -f "$device/idProduct" ] || continue
-    [ "$(cat "$device/idVendor")" = "$VENDOR" ] && [ "$(cat "$device/idProduct")" = "$PRODUCT" ] || continue
+    if [ ! -f "$device/idVendor" ] || [ ! -f "$device/idProduct" ]; then continue; fi
+    if [ "$(cat "$device/idVendor")" != "$VENDOR" ] || [ "$(cat "$device/idProduct")" != "$PRODUCT" ]; then continue; fi
     bus=$(cat "$device/busnum")
     num=$(cat "$device/devnum")
     node=$(printf '/dev/bus/usb/%03d/%03d' "$bus" "$num")
