@@ -24,8 +24,7 @@ guarantee compatibility with every UPS revision.
 
 The DSM package includes NUT 2.8.2, USB configuration, driver detection, live
 voltage/load/battery readings, a driver watchdog, logs and diagnostics export.
-It runs without Docker or Python on the NAS. Its window uses DSM components,
-without an iframe or a separate application login.
+It runs without Docker or Python on the NAS. Its desktop window uses DSM components.
 
 **Development status:** USB readings and DSM network UPS discovery have been
 verified on Xpenology DS3622xs+ / AMD N40L, DSM 7.2.2-72806 Update 10. Automatic

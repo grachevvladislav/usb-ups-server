@@ -31,8 +31,7 @@ sudo sh /var/packages/usb-ups-server/target/tools/usb-access.sh install-rule 092
 ```
 
 Reconnect USB. If udev is unavailable, include the complete helper error and
-system diagnostics. Version 0.1.1 fixed a false failure when `/etc/udev/rules.d`
-did not yet exist. The `grant` action is temporary and requires `setfacl`.
+system diagnostics. The helper creates `/etc/udev/rules.d` when installing a rule. The `grant` action is temporary and requires `setfacl`.
 Do not make all of `/dev/bus/usb` world-writable or run the app as root.
 
 ## RICHCOMM 0925:1234: Entity not found
@@ -84,10 +83,8 @@ connection failure when other readings and timestamps update.
 ## DSM window or session error
 
 Close the old app window, refresh DSM over HTTPS and reopen from the main menu.
-Use a current DSM administrator session. Version 0.1.3 had a CSP frame problem;
-0.1.4 used a same-origin iframe; 0.1.5 removed frames. Version 0.1.6 fixed and
-verified current-session SynoToken authentication on the first NAS.
-Do not disable CSP or authentication. Include the exact app version and error.
+Use a current DSM administrator session. If the DSM session expired, sign into DSM again and reopen the app. Include the
+exact app version and error when reporting a problem.
 The standalone 8787 key is not used for the DSM window.
 
 ## Xpenology N40L and missing OHCI

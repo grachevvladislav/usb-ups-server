@@ -33,6 +33,7 @@ type Server struct {
 	attempts   map[string]attempt
 	operation  chan struct{}
 	dsmAuth    *dsmAuthenticator
+	localIPs   func() []net.IP
 }
 type attempt struct {
 	count int
@@ -59,7 +60,7 @@ func NewServer(m *Manager, secure bool, logs *boundedBuffer) (*Server, error) {
 	if len(strings.TrimSpace(string(b))) != 64 {
 		return nil, fmt.Errorf("invalid admin-token file")
 	}
-	return &Server{Manager: m, tokenHash: sha256.Sum256([]byte(strings.TrimSpace(string(b)))), session: randomToken(), secure: secure, logs: logs, attempts: map[string]attempt{}, operation: make(chan struct{}, 1), dsmAuth: newDSMAuthenticator()}, nil
+	return &Server{Manager: m, tokenHash: sha256.Sum256([]byte(strings.TrimSpace(string(b)))), session: randomToken(), secure: secure, logs: logs, attempts: map[string]attempt{}, operation: make(chan struct{}, 1), dsmAuth: newDSMAuthenticator(), localIPs: localLANIPv4s}, nil
 }
 func (s *Server) validToken(token string) bool {
 	hash := sha256.Sum256([]byte(token))
@@ -71,6 +72,11 @@ func jsonReply(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 func apiError(w http.ResponseWriter, status int, e error) {
+	var permission *usbPermissionError
+	if errors.As(e, &permission) {
+		jsonReply(w, status, map[string]any{"ok": false, "error": e.Error(), "code": "usb_permission_denied", "command": permission.command(), "hint": "Выполните команду в SSH на NAS, переподключите USB-кабель ИБП и обновите список устройств. Питание ИБП отключать не нужно."})
+		return
+	}
 	jsonReply(w, status, map[string]any{"ok": false, "error": e.Error()})
 }
 func decode(w http.ResponseWriter, r *http.Request, v any) error {
@@ -165,7 +171,7 @@ func (s *Server) handler(dsmProxy bool) http.Handler {
 		jsonReply(w, 200, map[string]bool{"ok": true})
 	})
 	mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
-		jsonReply(w, 200, map[string]any{"config": s.Manager.Config(), "drivers": drivers, "subdrivers": subdrivers})
+		jsonReply(w, 200, s.settings(r, dsmProxy))
 	})
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
 		c := s.Manager.Config()
@@ -208,6 +214,12 @@ func (s *Server) handler(dsmProxy bool) http.Handler {
 			if e := c.Validate(); e != nil {
 				apiError(w, 400, e)
 				return
+			}
+			if c.Enabled || op == "detect" {
+				if e := checkUSBPermissions(c, USBDevices()); e != nil {
+					apiError(w, 422, e)
+					return
+				}
 			}
 			timeout := 75 * time.Second
 			if op == "detect" {

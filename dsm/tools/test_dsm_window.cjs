@@ -143,3 +143,17 @@ test('window constrains size and scrolls only its content vertically without a u
         assert.ok(!JSON.stringify(tree).includes('DSM: vlad'));
     }
 });
+
+test('missing USB permissions opens a specific command dialog and blocks starting monitoring', async () => {
+    const { instance, render } = application(() => { throw Error('must not start NUT'); });
+    instance.loaded = true; instance.tab = 'settings';
+    instance.cfg = { vendor_id: '0925', product_id: '1234', enabled: true };
+    instance.devices = [{ vendor_id: '0925', product_id: '1234', access: 'denied', name: 'RICHCOMM', path: '/dev/bus/usb/005/002' }];
+    instance.syncUSBSelection();
+    assert.match(instance.permissionHelp.command, /install-rule 0925 1234$/);
+    assert.ok(nodes(render()).some(n => n.attributes.attrs && n.attributes.attrs.role === 'alertdialog'));
+    await instance.apply();
+    assert.equal(instance.busy, false);
+    instance.devices[0].access = 'granted'; instance.syncUSBSelection();
+    assert.equal(instance.permissionHelp, null);
+});

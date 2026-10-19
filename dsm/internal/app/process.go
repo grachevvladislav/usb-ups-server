@@ -257,6 +257,7 @@ type USBDevice struct {
 	Serial    string `json:"serial"`
 	Name      string `json:"name"`
 	Path      string `json:"path"`
+	Access    string `json:"access"`
 }
 
 func USBDevices() []USBDevice {
@@ -268,7 +269,8 @@ func USBDevices() []USBDevice {
 		if v == "" || id == "" || v == "1d6b" {
 			continue
 		}
-		out = append(out, USBDevice{v, id, read("serial"), strings.TrimSpace(read("manufacturer") + " " + read("product")), "/dev/bus/usb/" + padUSB(read("busnum")) + "/" + padUSB(read("devnum"))})
+		node := "/dev/bus/usb/" + padUSB(read("busnum")) + "/" + padUSB(read("devnum"))
+		out = append(out, USBDevice{VendorID: v, ProductID: id, Serial: read("serial"), Name: strings.TrimSpace(read("manufacturer") + " " + read("product")), Path: node, Access: usbAccess(node)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Path < out[j].Path })
 	return out

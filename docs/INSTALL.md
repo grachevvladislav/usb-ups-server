@@ -33,7 +33,7 @@ components by SHA-256. 32-bit ARM is not supported. ARM64 hardware testing is pe
 1. Open **Package Center → Manual Install**, choose the `.spk` for your CPU and
    finish installation. Verify the source if DSM displays a third-party warning.
 2. Open **USB UPS Server** from the DSM main menu over HTTPS. Your existing DSM
-   administrator session is used; there is no separate application password.
+   administrator session is used.
 3. After an update, close the old app window, refresh DSM and reopen the app.
 
 Updating restarts the package service and refreshes its nginx configuration;
@@ -46,8 +46,11 @@ settings are retained. A NAS reboot is not needed.
    For another device, use driver detection with monitoring disabled; it can take
    up to five minutes.
 3. Grant USB access as described below.
-4. For initial reading, use NUT address `127.0.0.1`, port `3493`. If occupied,
-   `3494` can be used temporarily; DSM's own client needs `3493`.
+4. Use the NAS **LAN IP** as the NUT address, port `3493`. On initial setup the
+   app suggests the current DSM connection address when it belongs to a local
+   NAS interface. If several addresses are ambiguous, enter one manually.
+   Saved addresses are retained. If occupied, `3494` can temporarily test readings;
+   DSM's own client needs `3493`.
 5. Enable monitoring and click **Apply**. Validation takes up to 30 seconds;
    the app attempts to restore previous settings on failure.
 6. Check **Overview** for fresh readings. `OL` means mains, `OB` battery and
@@ -58,7 +61,8 @@ NUT instance already owns it; do not stop unrelated UPS services blindly.
 
 ## USB access
 
-For the tested device, run on the NAS over SSH:
+When USB access is denied, the app displays a dialog with a command for the
+selected device. For the tested device, run on the NAS over SSH:
 
 ```sh
 sudo sh /var/packages/usb-ups-server/target/tools/usb-access.sh install-rule 0925 1234
@@ -80,6 +84,11 @@ needs verification. Xpenology N40L may also need an OHCI controller driver;
 see [controller diagnosis](TROUBLESHOOTING.md#xpenology-n40l-and-missing-ohci).
 
 ## Connect DSM to the NUT server
+
+**`127.0.0.1` will probably not work in DSM's UPS server field.** The tested
+DSM 7.2.2 rejects it. A NUT listener bound only to localhost cannot accept
+requests to the NAS LAN IP, even when local readings work. Use **the same NAS
+LAN IP** in both the app and DSM UPS settings.
 
 1. In the app set **NUT server address** to the NAS LAN IP, port `3493`, and apply.
    With Docker, use the Linux host IP instead.
