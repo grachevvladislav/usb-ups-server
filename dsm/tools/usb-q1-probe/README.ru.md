@@ -6,11 +6,15 @@
 Использует libusb из установленного USB UPS Server.
 
 1. Выключить мониторинг в приложении и закрыть ручной запуск драйвера.
-2. Распаковать архив в папку, доступную пользователю `usb-ups-server`.
-3. Из распакованной папки выполнить:
+2. Распаковать архив. Для запуска использовать подкаталог данных пакета:
+   `/tmp` на NAS может быть смонтирован с `noexec`. При этом загрузчик musl
+   выдаёт `Not a valid dynamic program`, даже если ELF-файл корректен.
+3. Если архив распакован в `/tmp`, выполнить:
 
 ```sh
-sudo -u usb-ups-server sh ./run.sh 2>&1 | tee ~/ups-q1-probe.txt
+sudo cp -R /tmp/usb-q1-probe-aarch64 /var/packages/usb-ups-server/var/
+sudo chmod -R a+rX /var/packages/usb-ups-server/var/usb-q1-probe-aarch64
+sudo -u usb-ups-server sh /var/packages/usb-ups-server/var/usb-q1-probe-aarch64/run.sh 2>&1 | tee ~/ups-q1-probe.txt
 ```
 
 Проверка ограничена по времени: обычно несколько секунд, максимум около минуты.
