@@ -1,4 +1,5 @@
 import io
+import hashlib
 import json
 from pathlib import Path
 import tarfile
@@ -12,6 +13,25 @@ import check_spk
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_offline_runtime_requires_matching_checksum_and_lock(self):
+        with tempfile.TemporaryDirectory() as d, patch.object(check_spk, 'check'):
+            root = Path(d)
+            (root / 'payload/nut').mkdir(parents=True)
+            manifest = {'arch': 'aarch64', 'packages': []}
+            (root / 'payload/nut/runtime-manifest.json').write_text(json.dumps(manifest))
+            (root / 'outer').mkdir()
+            build.archive(root / 'payload', root / 'outer/package.tgz', 'w:gz')
+            source = root / 'old.spk'
+            build.archive(root / 'outer', source, 'w')
+            source.with_suffix('.spk.sha256').write_text(hashlib.sha256(source.read_bytes()).hexdigest() + '  old.spk\n')
+            build.reuse_runtime(source, manifest, root / 'out/nut')
+            self.assertTrue((root / 'out/nut/runtime-manifest.json').is_file())
+            with self.assertRaisesRegex(ValueError, 'lock file'):
+                build.reuse_runtime(source, {'arch': 'x86_64', 'packages': []}, root / 'wrong/nut')
+            source.write_bytes(source.read_bytes() + b'tampered')
+            with self.assertRaisesRegex(ValueError, 'SHA256 mismatch'):
+                build.reuse_runtime(source, manifest, root / 'corrupt/nut')
+
     def test_lock_manifests(self):
         for arch in ["x86_64", "aarch64"]:
             manifest = json.loads((runtime.HERE / f"runtime-{arch}.lock.json").read_text())

@@ -25,6 +25,41 @@ function nodes(tree) {
     return [tree].concat((tree.children || []).flatMap(nodes));
 }
 
+test('USB loss shows recovery and hides stale readings', () => {
+    const { instance, render } = application();
+    instance.loaded = true;
+    instance.live = { ok: false, state: 'usb_disconnected', health: { enabled: true, server_running: true },
+        error: 'USB-кабель отключён', variables: { 'ups.status': 'OL', 'input.voltage': '999' } };
+    const text = JSON.stringify(render());
+    assert.match(text, /ИБП отключён от USB/);
+    assert.match(text, /Повторные попытки выполняются автоматически/);
+    assert.doesNotMatch(text, /999|Питание от сети/);
+});
+
+test('API failure preserves enabled state and uses a readable connection message', async () => {
+    const { instance, render } = application(async () => { throw Error('Connection refused'); });
+    instance.loaded = true;
+    instance.cfg.enabled = true;
+    instance.live = { health: { enabled: true } };
+    await instance.refreshStatus();
+    assert.equal(instance.live.health.enabled, true);
+    assert.match(JSON.stringify(render()), /Приложение недоступно/);
+    assert.doesNotMatch(JSON.stringify(render()), /Connection refused|Мониторинг выключен/);
+    assert.doesNotMatch(JSON.stringify(render()), /Повторные попытки выполняются автоматически/);
+});
+
+test('DSM notification strings are preloaded even when app window is closed', () => {
+    const config = JSON.parse(fs.readFileSync(path.join(ui, 'config'), 'utf8'));
+    const entry = config['USBUPSServer.js']['org.usbupsserver.App'];
+    for (const lang of ['enu', 'rus']) {
+        const text = fs.readFileSync(path.join(ui, 'texts', lang, 'strings'), 'utf8');
+        for (const key of ['title', 'lost', 'restored', 'test']) {
+            assert.ok(entry.preloadTexts.includes('notifications:' + key));
+            assert.match(text, new RegExp('^' + key + '="', 'm'));
+        }
+    }
+});
+
 test('native DSM views use Synology controls without frames or login fields', () => {
     const config = JSON.parse(fs.readFileSync(path.join(ui, 'config'), 'utf8'));
     assert.equal(config['.url'], undefined);

@@ -190,7 +190,11 @@ func TestNUTChild(t *testing.T) {
 		go func(c net.Conn) {
 			defer c.Close()
 			_, _ = bufio.NewReader(c).ReadString('\n')
-			_, _ = io.WriteString(c, "BEGIN LIST VAR ups\nVAR ups ups.status \"OL\"\nEND LIST VAR ups\n")
+			response, err := os.ReadFile(filepath.Join(os.Getenv("NUT_CONFPATH"), "test-response"))
+			if err != nil {
+				response = []byte("BEGIN LIST VAR ups\nVAR ups ups.status \"OL\"\nEND LIST VAR ups\n")
+			}
+			_, _ = c.Write(response)
 		}(c)
 	}
 }
@@ -393,5 +397,32 @@ func TestBundledRuntime(t *testing.T) {
 	}
 	if e == nil {
 		t.Fatal("stopped driver still reported healthy")
+	}
+	// Real upsd must remain reachable and reconnect to a replacement driver
+	// without losing its process or network listener.
+	serverPID := m.server.cmd.Process.Pid
+	if !m.server.alive() {
+		t.Fatal("upsd exited when its driver stopped")
+	}
+	conn, dialErr := net.DialTimeout("tcp", net.JoinHostPort(c.Listen, strconv.Itoa(c.Port)), time.Second)
+	if dialErr != nil {
+		t.Fatal("upsd listener lost during driver outage", dialErr)
+	}
+	conn.Close()
+	m.driver, e = m.spawn("usr/lib/nut/dummy-ups", "-a", "ups", "-F")
+	if e != nil {
+		t.Fatal(e)
+	}
+	reconnectCtx, reconnectCancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer reconnectCancel()
+	for reconnectCtx.Err() == nil {
+		vars, e = readUPS(reconnectCtx, c)
+		if e == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if e != nil || vars["ups.status"] != "OL" || m.server.cmd.Process.Pid != serverPID {
+		t.Fatalf("upsd did not reconnect to replacement driver: %v %v", vars, e)
 	}
 }

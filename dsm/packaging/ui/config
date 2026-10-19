@@ -8,7 +8,8 @@
       "appWindow": "org.usbupsserver.App",
       "allowMultiInstance": false,
       "hidden": false,
-      "allUsers": false
+      "allUsers": false,
+      "preloadTexts": ["notifications:title", "notifications:lost", "notifications:restored", "notifications:test"]
     }
   }
 }

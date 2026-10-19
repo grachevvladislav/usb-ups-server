@@ -1,0 +1,5 @@
+[notifications]
+title="USB UPS Server"
+lost="Communication with the UPS has been lost. Fresh power and battery readings are unavailable. USB UPS Server will reconnect automatically."
+restored="Communication with the UPS has been restored. Fresh readings are available again."
+test="USB UPS Server test notification. Desktop notifications are working. Email and push delivery are configured separately in DSM."

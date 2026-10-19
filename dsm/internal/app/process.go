@@ -61,6 +61,19 @@ type Manager struct {
 	log                io.Writer
 	lastError          string
 	failures, restarts int
+	devices            func() []USBDevice
+	notify             func(context.Context, string) error
+	stopped            bool
+	usbPath            string
+	driverStarted      time.Time
+	nextAttempt        time.Time
+	lostSince          time.Time
+	lastSuccess        time.Time
+	outageNotified     bool
+	notificationError  string
+	connectionState    string
+	serverNextAttempt  time.Time
+	serverRestarts     int
 }
 
 func NewManager(root, data string, log io.Writer) (*Manager, error) {
@@ -76,7 +89,7 @@ func NewManager(root, data string, log io.Writer) (*Manager, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Manager{root: root, data: data, cfg: c, log: log}, nil
+	return &Manager{root: root, data: data, cfg: c, log: log, devices: USBDevices, notify: notifyDSM}, nil
 }
 func (m *Manager) Config() Config { m.mu.Lock(); defer m.mu.Unlock(); return m.cfg }
 func (m *Manager) command(conf, run, binary string, args ...string) (*exec.Cmd, error) {
@@ -139,6 +152,7 @@ func (m *Manager) startLocked(ctx context.Context, c Config) error {
 	if err != nil {
 		return err
 	}
+	m.driverStarted = time.Now()
 	m.server, err = m.spawn("usr/sbin/upsd", "-F")
 	if err != nil {
 		m.stopLocked()
@@ -186,9 +200,19 @@ func (m *Manager) Apply(ctx context.Context, c Config) error {
 		return err
 	}
 	m.cfg = c
+	m.stopped = false
 	m.failures = 0
 	m.restarts = 0
 	m.lastError = ""
+	m.connectionState = ""
+	m.nextAttempt = time.Time{}
+	m.serverNextAttempt = time.Time{}
+	m.serverRestarts = 0
+	m.usbPath, _ = m.usbState(c)
+	if !c.Enabled {
+		m.lostSince = time.Time{}
+		m.outageNotified = false
+	}
 	return nil
 }
 func (m *Manager) restore(c Config) {
@@ -201,52 +225,41 @@ func (m *Manager) restore(c Config) {
 func (m *Manager) Start(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.startLocked(ctx, m.cfg); err != nil {
+	m.stopped = false
+	if !m.cfg.Enabled {
+		return
+	}
+	if err := writeNUT(filepath.Join(m.data, "conf"), filepath.Join(m.data, "run"), m.cfg); err != nil {
 		m.lastError = err.Error()
 		fmt.Fprintln(m.log, err)
 	}
 }
-func (m *Manager) Stop() { m.mu.Lock(); defer m.mu.Unlock(); m.stopLocked() }
+func (m *Manager) Stop() { m.mu.Lock(); defer m.mu.Unlock(); m.stopped = true; m.stopLocked() }
 func (m *Manager) Health() map[string]any {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return map[string]any{"enabled": m.cfg.Enabled, "driver_running": m.driver.alive(), "server_running": m.server.alive(), "error": m.lastError, "restart_attempts": m.restarts, "protection": "DSM shutdown integration requires hardware verification"}
+	return map[string]any{"enabled": m.cfg.Enabled, "driver_running": m.driver.alive(), "server_running": m.server.alive(), "error": m.lastError, "restart_attempts": m.restarts, "connection_state": m.connectionState, "usb_path": m.usbPath, "last_success_at": m.lastSuccess, "next_retry_at": m.nextAttempt, "notification_error": m.notificationError, "protection": "DSM shutdown integration requires hardware verification"}
 }
 func (m *Manager) Watch(ctx context.Context) {
-	t := time.NewTicker(15 * time.Second)
+	t := time.NewTicker(5 * time.Second)
 	defer t.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			m.mu.Lock()
-			if !m.cfg.Enabled {
-				m.mu.Unlock()
-				continue
-			}
-			_, err := readUPS(ctx, m.cfg)
-			if err == nil && m.driver.alive() && m.server.alive() {
-				m.failures = 0
-				m.restarts = 0
-				m.lastError = ""
-				m.mu.Unlock()
-				continue
-			}
-			m.failures++
-			if err != nil {
-				m.lastError = err.Error()
-			}
-			if m.failures >= 3 && m.restarts < 3 {
-				m.restarts++
-				m.stopLocked()
-				fmt.Fprintf(m.log, "watchdog: recovery attempt %d\n", m.restarts)
-				if e := m.startLocked(ctx, m.cfg); e != nil {
-					m.lastError = e.Error()
+			event := m.recoverStep(ctx, time.Now())
+			if event != "" {
+				fmt.Fprintf(m.log, "UPS communication: %s\n", event)
+				err := m.notify(ctx, event)
+				m.mu.Lock()
+				m.notificationError = ""
+				if err != nil {
+					m.notificationError = err.Error()
+					fmt.Fprintf(m.log, "DSM notification %s failed: %v\n", event, err)
 				}
-				// Recovery is confirmed by a later successful poll, not by process creation.
+				m.mu.Unlock()
 			}
-			m.mu.Unlock()
 		}
 	}
 }

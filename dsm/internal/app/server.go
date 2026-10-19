@@ -174,21 +174,16 @@ func (s *Server) handler(dsmProxy bool) http.Handler {
 		jsonReply(w, 200, s.settings(r, dsmProxy))
 	})
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, r *http.Request) {
-		c := s.Manager.Config()
-		result := map[string]any{"health": s.Manager.Health(), "ok": false}
-		if c.Enabled {
-			v, e := readUPS(r.Context(), c)
-			if e != nil {
-				result["error"] = e.Error()
-			} else {
-				result["ok"] = true
-				result["variables"] = v
-				result["observed_at"] = time.Now().UTC()
-			}
-		}
-		jsonReply(w, 200, result)
+		jsonReply(w, 200, s.Manager.Status(r.Context()))
 	})
 	mux.HandleFunc("GET /api/usb", func(w http.ResponseWriter, r *http.Request) { jsonReply(w, 200, USBDevices()) })
+	mux.HandleFunc("POST /api/test-notification", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.Manager.notify(r.Context(), "test"); err != nil {
+			apiError(w, 502, err)
+			return
+		}
+		jsonReply(w, 200, map[string]bool{"ok": true})
+	})
 	mux.HandleFunc("GET /api/logs", func(w http.ResponseWriter, r *http.Request) {
 		jsonReply(w, 200, map[string]string{"text": s.logs.String()})
 	})

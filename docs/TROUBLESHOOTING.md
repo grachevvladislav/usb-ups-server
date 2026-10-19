@@ -133,3 +133,19 @@ Review/redact before posting publicly. Never attach `admin-token`, DSM cookies,
 SynoToken, passwords, `server.key` or the complete package data directory.
 
 [Report an issue](https://github.com/grachevvladislav/usb-ups-server/issues/new/choose).
+
+## USB loss and automatic recovery
+
+Leave monitoring enabled. The application reports missing USB or reconnecting,
+continues retrying and keeps a healthy NUT server running. A replugged device
+is matched by the saved IDs rather than the old `/dev/bus/usb` number. If USB
+permissions are missing after reconnection, refresh the USB list in Settings
+and follow the displayed device-specific instructions.
+
+Use the DSM notification test button in Logs to check desktop delivery to
+administrators. This mechanism does not provide email/push delivery. Lost
+communication is not battery operation: no OB/LB status is fabricated.
+
+If recovery fails, export diagnostics while leaving monitoring enabled and
+report how long the USB cable was disconnected and reconnected. Do not remove
+UPS or NAS power for this test.

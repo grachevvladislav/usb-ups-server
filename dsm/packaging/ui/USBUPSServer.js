@@ -62,7 +62,14 @@
             },
             refreshStatus: async function () {
                 try { this.live = await this.api('status'); }
-                catch (e) { this.live = { ok: false, error: e.message }; }
+                catch (e) { this.live = { ok: false, state: 'api_unavailable', health: this.live.health || { enabled: !!this.cfg.enabled }, error: 'Нет связи с приложением. Проверьте его состояние в Центре пакетов DSM.' }; }
+            },
+            testNotification: async function () {
+                if (this.busy) return;
+                this.busy = true; this.error = ''; this.message = '';
+                try { await this.api('test-notification', {}); this.message = 'Запрос отправлен DSM. Проверьте уведомление в правом верхнем углу рабочего стола.'; }
+                catch (e) { this.error = 'Не удалось отправить уведомление DSM: ' + e.message; }
+                finally { this.busy = false; }
             },
             refreshUSB: async function () {
                 try { this.devices = await this.api('usb'); this.syncUSBSelection(); this.error = ''; }
@@ -179,16 +186,18 @@
                 body = [heading(this.busy ? 'Загрузка…' : 'Нет подключения'), note(this.error || 'Проверка текущей сессии DSM…'), button('Повторить', this.initialize, false, this.busy)];
             } else if (this.tab === 'status') {
                 var vars = this.live.variables || {}, health = this.live.health || {}, state = String(vars['ups.status'] || '').split(/\s+/);
-                var title = !health.enabled ? 'Мониторинг выключен' : !this.live.ok ? 'Нет свежих данных' :
+                var title = this.live.state === 'api_unavailable' ? 'Приложение недоступно' : !health.enabled ? 'Мониторинг выключен' : this.live.state === 'usb_disconnected' ? 'ИБП отключён от USB' : this.live.state === 'usb_permission_denied' ? 'Нет доступа к USB' : !this.live.ok ? 'Восстановление связи с ИБП' :
                     state.indexOf('LB') >= 0 ? 'Низкий заряд батареи' : state.indexOf('OB') >= 0 ? 'Работа от батареи' :
                     state.indexOf('OL') >= 0 ? 'Питание от сети' : vars['ups.status'];
-                body.push(heading(title), note(this.live.error || health.error || 'Драйвер: ' + (health.driver_running ? 'работает' : 'остановлен') + ' · NUT: ' + (health.server_running ? 'работает' : 'остановлен')));
+                body.push(heading(title), note(this.live.error || 'Драйвер: ' + (health.driver_running ? 'работает' : 'остановлен') + ' · NUT: ' + (health.server_running ? 'работает' : 'остановлен')));
+                if (health.enabled && !this.live.ok && this.live.state !== 'api_unavailable') body.push(note('Мониторинг остаётся включённым. Повторные попытки выполняются автоматически; переключать галочку не нужно.'));
+                if (health.notification_error) body.push(note('Не удалось доставить уведомление DSM: ' + health.notification_error));
                 var observed = this.live.observed_at;
                 if (observed) body.push(note('Показания получены: ' + new Date(observed).toLocaleTimeString()));
-                body.push(h('v-form', { props: { direction: 'horizontal' } }, readings.filter(function (r) { return vars[r[0]] !== undefined; }).map(function (r) {
+                body.push(h('v-form', { props: { direction: 'horizontal' } }, readings.filter(function (r) { return self.live.ok && vars[r[0]] !== undefined; }).map(function (r) {
                     return formItem(r[1], h('span', [vars[r[0]] + ' ' + r[2]]));
                 })));
-                if (Object.keys(vars).length) body.push(h('details', { style: { marginTop: '24px' } }, [h('summary', ['Все переменные NUT']), table(Object.keys(vars).sort().map(function (key) { return [key, vars[key]]; }))]));
+                if (this.live.ok && Object.keys(vars).length) body.push(h('details', { style: { marginTop: '24px' } }, [h('summary', ['Все переменные NUT']), table(Object.keys(vars).sort().map(function (key) { return [key, vars[key]]; }))]));
                 body.push(note('Переход в безопасное состояние настраивается в «Панель управления → Оборудование и питание → ИБП». Испытание завершения работы NAS ещё не проведено.'));
             } else if (this.tab === 'settings') {
                 var chosenDevice = this.devices[Number(this.selectedUSB)];
@@ -208,7 +217,7 @@
                 body.push(note('Для клиента DSM: ИБП ups, пользователь monuser, пароль secret. Адрес NUT должен совпадать с адресом сервера в настройках ИБП DSM.'));
                 body.push(note('Подбор драйвера доступен при выключенном мониторинге. При ошибке применения приложение восстанавливает предыдущие настройки.'));
             } else {
-                body.push(heading('Диагностика'), actions([button('Обновить журнал', this.refreshLogs, false, this.busy), button('Скачать диагностику', this.download, false, this.busy)]));
+                body.push(heading('Диагностика'), actions([button('Обновить журнал', this.refreshLogs, false, this.busy), button('Скачать диагностику', this.download, false, this.busy), button('Проверить уведомление DSM', this.testNotification, false, this.busy)]));
                 body.push(h('pre', { style: { font: '12px/1.6 monospace', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', marginTop: '16px' } }, [this.logText]));
             }
             var nav = [['status', 'Обзор', 'M3 4h18v16H3z M3 9h18 M7 13h4 M7 16h7'], ['settings', 'Настройки', 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8 M12 2v3 M12 19v3 M2 12h3 M19 12h3 M5 5l2 2 M17 17l2 2 M5 19l2-2 M17 7l2-2'], ['logs', 'Журнал', 'M8 5h13 M8 12h13 M8 19h13 M3 5h1 M3 12h1 M3 19h1']];

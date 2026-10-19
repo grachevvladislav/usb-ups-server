@@ -30,7 +30,8 @@ It runs without Docker or Python on the NAS. Its desktop window uses DSM compone
 verified on Xpenology DS3622xs+ / AMD N40L, DSM 7.2.2-72806 Update 10. Automatic
 safe-state / shutdown on a power failure has **not** been verified. The package
 publishes UPS data; DSM's own UPS client must be configured and tested separately.
-ARM64 builds exist; DS423 hardware testing is pending.
+Installation and clean reinstallation have also been confirmed on DS423, DSM 7.4.1-90080 (ARM64), with USB readings verified. Clean reinstallation was confirmed on both NAS models on 2026-10-19.
+USB reconnection and DSM desktop notifications in 0.1.11 require hardware validation.
 
 ## Install on DSM
 

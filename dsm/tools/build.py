@@ -2,6 +2,7 @@
 """Build a self-contained DSM 7.2.2+ SPK using Go and Python 3."""
 import argparse
 import hashlib
+import io
 import json
 import os
 import re
@@ -22,6 +23,7 @@ if not re.fullmatch(r"\d+\.\d+\.\d+", VERSION):
     raise ValueError("invalid release version")
 sys.path.insert(0, str(ROOT / "tools"))
 import runtime
+import check_spk
 
 
 def icon(size):
@@ -56,7 +58,22 @@ def package_info(arch):
     return (ROOT / "packaging/INFO").read_text().replace("@ARCH@", PACKAGE_ARCH[arch]).replace("@VERSION@", VERSION)
 
 
-def build(arch, out):
+def reuse_runtime(source, manifest, dest):
+    """Reuse a validated, unchanged runtime from an earlier local build."""
+    check_spk.check(source)
+    checksum = source.with_suffix('.spk.sha256').read_text().split()[0]
+    if hashlib.sha256(source.read_bytes()).hexdigest() != checksum:
+        raise ValueError('source SPK SHA256 mismatch')
+    with tarfile.open(source) as spk:
+        payload = spk.extractfile('package.tgz').read()
+    with tarfile.open(fileobj=io.BytesIO(payload), mode='r:gz') as package:
+        old_manifest = json.load(package.extractfile('nut/runtime-manifest.json'))
+        if old_manifest != manifest:
+            raise ValueError('source SPK runtime does not match the selected architecture and lock file')
+        package.extractall(dest.parent, members=[m for m in package.getmembers() if m.name == 'nut' or m.name.startswith('nut/')], filter='data')
+
+
+def build(arch, out, runtime_from_spk=None):
     with tempfile.TemporaryDirectory(prefix="ups-spk-") as temp:
         temp = Path(temp)
         package, spk = temp / "target", temp / "spk"
@@ -68,7 +85,10 @@ def build(arch, out):
         env = dict(os.environ, GOOS="linux", GOARCH={"x86_64": "amd64", "aarch64": "arm64"}[arch], GOAMD64="v1", CGO_ENABLED="0")
         subprocess.run(["go", "build", "-trimpath", "-ldflags=-s -w", "-o", str(package / "bin/upsdsm"), "./cmd/upsdsm"], cwd=ROOT, env=env, check=True)
         manifest = json.loads((ROOT / f"tools/runtime-{arch}.lock.json").read_text())
-        runtime.extract(manifest, package / "nut")
+        if runtime_from_spk:
+            reuse_runtime(runtime_from_spk, manifest, package / "nut")
+        else:
+            runtime.extract(manifest, package / "nut")
         shutil.copytree(ROOT / "tools/host", package / "tools")
         # MIT grants permission without a click-through EULA. Keep its notice
         # in the installed payload instead of asking DSM to display an EULA.
@@ -95,5 +115,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--arch", choices=["x86_64", "aarch64"], required=True)
     parser.add_argument("--out", type=Path, default=ROOT.parent / "dist")
+    parser.add_argument("--runtime-from-spk", type=Path, help="offline: reuse the exact locked runtime from a validated local SPK with its SHA256 sidecar")
     args = parser.parse_args()
-    build(args.arch, args.out.resolve())
+    build(args.arch, args.out.resolve(), args.runtime_from_spk)
