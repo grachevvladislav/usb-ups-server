@@ -1,0 +1,41 @@
+#!/bin/sh
+set -eu
+PKG=usb-ups-server
+TARGET="${SYNOPKG_PKGDEST:-/var/packages/$PKG/target}"
+DATA="${SYNOPKG_PKGVAR:-/var/packages/$PKG/var}"
+PIDFILE="$DATA/daemon.pid"
+
+owned_pid() {
+    [ -f "$PIDFILE" ] || return 1
+    PID=$(cat "$PIDFILE")
+    case "$PID" in ''|*[!0-9]*) return 1 ;; esac
+    [ -r "/proc/$PID/cmdline" ] || return 1
+    EXE=$(readlink "/proc/$PID/exe") || return 1
+    [ "$EXE" = "$(readlink -f "$TARGET/bin/upsdsm")" ]
+}
+
+case "${1:-}" in
+    start)
+        owned_pid && exit 0
+        umask 077
+        mkdir -p "$DATA"
+        chmod 700 "$DATA"
+        [ ! -f "$DATA/service.log" ] || mv -f "$DATA/service.log" "$DATA/service.log.1"
+        nohup "$TARGET/bin/upsdsm" --root "$TARGET" --data "$DATA" >>"$DATA/service.log" 2>&1 </dev/null &
+        echo "$!" > "$PIDFILE"
+        sleep 1
+        owned_pid || { rm -f "$PIDFILE"; exit 1; }
+        ;;
+    stop)
+        if owned_pid; then
+            kill -TERM "$PID"
+            n=0
+            while owned_pid && [ "$n" -lt 50 ]; do sleep 1; n=$((n+1)); done
+            if owned_pid; then echo "Service is still stopping" >&2; exit 1; fi
+        fi
+        rm -f "$PIDFILE"
+        ;;
+    status) owned_pid && exit 0; exit 3 ;;
+    log) echo "$DATA/service.log" ;;
+    *) exit 1 ;;
+esac

@@ -1,0 +1,48 @@
+name: Bug / Ошибка
+description: USB detection, driver, DSM window or NUT connection problem
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Read [troubleshooting](https://github.com/grachevvladislav/usb-ups-server/blob/main/docs/TROUBLESHOOTING.md) / [диагностику](https://github.com/grachevvladislav/usb-ups-server/blob/main/docs/TROUBLESHOOTING.ru.md).
+        Review logs before posting. Never post passwords, admin-token, DSM cookies, SynoToken or private keys.
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation / Установка
+      options:
+        - DSM SPK
+        - Docker
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: App and OS versions / Версии приложения и ОС
+      placeholder: "SPK 0.1.7; DSM 7.2.2-72806 Update 10"
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: NAS / host model and actual CPU / Модель и процессор
+      placeholder: "DS3622xs+ (Xpenology, AMD N40L)"
+    validations:
+      required: true
+  - type: input
+    id: ups
+    attributes:
+      label: UPS model and USB VID:PID / Модель ИБП и USB ID
+      placeholder: "UPS USB Mon V2.0, 0925:1234"
+  - type: textarea
+    id: symptom
+    attributes:
+      label: Steps, expected and actual result / Шаги и результат
+      description: Include what changed before the failure. / Что изменилось перед ошибкой?
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Redacted diagnostics / Диагностика без секретов
+      description: Attach JSON from Log → Download diagnostics, or paste collect-dsm.sh output and the relevant log excerpt.

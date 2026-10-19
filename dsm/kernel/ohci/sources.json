@@ -1,0 +1,24 @@
+{
+  "platform": "broadwellnk",
+  "dsm": "7.2-72806",
+  "sources": [
+    {
+      "name": "ds.broadwellnk-7.2.dev.txz",
+      "url": "https://global.synologydownload.com/download/ToolChain/toolkit/7.2/broadwellnk/ds.broadwellnk-7.2.dev.txz",
+      "size": 465708492,
+      "sha256": "499d3eb2c5272ea0cecb6d5ac512bd651e88b30848163800118a9eb657a3b175"
+    },
+    {
+      "name": "broadwellnk-gcc1220_glibc236_x86_64-GPL.txz",
+      "url": "https://global.synologydownload.com/download/ToolChain/toolchain/7.2-72806/Intel%20x86%20Linux%204.4.302%20%28Broadwellnk%29/broadwellnk-gcc1220_glibc236_x86_64-GPL.txz",
+      "size": 124975524,
+      "sha256": "68ebd6ec9def0353025fccb77a54125b8ce257c08adb7f7bbdff425a160594b3"
+    },
+    {
+      "name": "linux-4.4.x.txz",
+      "url": "https://global.synologydownload.com/download/ToolChain/Synology%20NAS%20GPL%20Source/7.2-72806/broadwellnk/linux-4.4.x.txz",
+      "size": 101339084,
+      "sha256": "dd65630b7286d42ba927312de9e220772e49e3f3c6fafc191dcdc85865530875"
+    }
+  ]
+}

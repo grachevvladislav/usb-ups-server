@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Installation / Установка
+    url: https://github.com/grachevvladislav/usb-ups-server/blob/main/docs/INSTALL.ru.md
+    about: DSM package installation and USB access / Установка SPK и доступ к USB
+  - name: Troubleshooting / Диагностика
+    url: https://github.com/grachevvladislav/usb-ups-server/blob/main/docs/TROUBLESHOOTING.ru.md
+    about: Find a symptom before collecting diagnostics / Проверки по симптомам

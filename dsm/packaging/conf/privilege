@@ -1,0 +1,5 @@
+{
+  "defaults": { "run-as": "package" },
+  "username": "usb-ups-server",
+  "groupname": "usb-ups-server"
+}

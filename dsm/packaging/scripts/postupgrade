@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# Settings, access token and TLS keys are in SYNOPKG_PKGVAR.
+exit 0

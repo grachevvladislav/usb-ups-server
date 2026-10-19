@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+# Does not modify DSM UPS configuration or permissions established by an admin.
+exit 0
