@@ -126,6 +126,8 @@ chmod 640 /etc/nut/*.conf /etc/nut/upsd.users
 log "driver=${UPS_DRIVER}${UPS_SUBDRIVER:+ subdriver=${UPS_SUBDRIVER}} ups=${UPS_NAME} listen=${LISTEN_ADDR}:${LISTEN_PORT}"
 lsusb 2>/dev/null | sed 's/^/[nut]   usb: /' || log "lsusb failed — is /dev/bus/usb mounted into the container?"
 
+# Invoked indirectly by the TERM/INT trap below.
+# shellcheck disable=SC2317,SC2329
 cleanup() {
   log "stopping…"
   pkill -TERM upsmon 2>/dev/null || true
